@@ -33,13 +33,17 @@ public class App implements CommandLineRunner {
             // 値存在判定
             Boolean isError = this.isEmptyUserInfo(userInfo);
             // エラー発生時に処理終了
-            if (isError) return;
+            if (isError) {
+                System.exit(1);
+            }
             // 取引先インポートバッチ実行
             this.runDataImport("Account", userInfo);
         } catch(Exception e) {
             System.out.println("<< ERROR >> " + e);
-            return;
+            System.exit(1);
         }
+
+        System.exit(0);
     }
 
     private Boolean isEmptyUserInfo(UserInfo userInfo) {
