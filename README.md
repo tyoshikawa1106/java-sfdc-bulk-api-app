@@ -16,7 +16,7 @@ $ cd SalesforceBulkDI
 $ mvn spring-boot:run
 ```
 
-##Create JAR File
+##Package
 ```
 $ mvn package
 $ java -jar target/SalesforceBulkDI-1.0.0-SNAPSHOT.jar
