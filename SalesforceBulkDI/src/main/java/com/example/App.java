@@ -34,7 +34,7 @@ public class App implements CommandLineRunner {
             Boolean isError = this.isEmptyUserInfo(userInfo);
             // エラー発生時に処理終了
             if (isError) return;
-            // バッチ実行
+            // 取引先インポートバッチ実行
             this.runDataImport("Account", userInfo);
         } catch(Exception e) {
             System.out.println("<< ERROR >> " + e);
