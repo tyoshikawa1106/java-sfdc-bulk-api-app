@@ -7,6 +7,8 @@ src → main → resources → conf → userInfo.properties
 ```
 userId = <Your UserID>
 password = <Your Password>
+apiVersion = 34.0
+authEndpoint = https://<login or test>.salesforce.com/services/Soap/u/
 filePath = <Your File Path>/accounts.csv
 ```
 
