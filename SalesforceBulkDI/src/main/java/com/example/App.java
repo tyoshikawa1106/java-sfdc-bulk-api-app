@@ -27,27 +27,23 @@ public class App implements CommandLineRunner {
     public void run(String... strings) throws Exception {
         // resources→conf→userInfo.propertiesから設定情報取得
         ResourceBundle resouce = ResourceBundle.getBundle("conf.userInfo");
-        String userId = resouce.getString("userId");
-        String password = resouce.getString("password");
-        String apiVersion = resouce.getString("apiVersion");
-        String authEndpoint = resouce.getString("authEndpoint") + apiVersion;
-        String filePath = resouce.getString("filePath");
+        UserInfo userInfo = new UserInfo();
         // バッチ実行
-        this.runDataImport("Account", userId, password, apiVersion, authEndpoint, filePath);
+        this.runDataImport("Account", userInfo);
     }
 
-    public void runDataImport(String sobjectType, String userName, String password, String apiVersion, String authEndpoint, String sampleFileName) throws AsyncApiException, ConnectionException, IOException {
+    public void runDataImport(String sobjectType, UserInfo userInfo) throws AsyncApiException, ConnectionException, IOException {
         System.out.println("-- runDataImport --");
         // ConnectorConfig情報を作成
-        ConnectorConfig partnerConfig = this.getConnectorConfig(userName, password, authEndpoint);
+        ConnectorConfig partnerConfig = this.getConnectorConfig(userInfo);
         
         // BulkAPIを実行するための接続情報を作成
-        BulkConnection connection = this.getBulkConnection(userName, password, apiVersion, partnerConfig);
+        BulkConnection connection = this.getBulkConnection(userInfo, partnerConfig);
         // ジョブを作成
         JobInfo job = this.createUpsertJob(sobjectType, connection, "Id");
         
         // CSVファイルから登録データ情報を取得してジョブバッチを作成
-        List<BatchInfo> batchInfoList = this.createBatchesFromCSVFile(connection, job, sampleFileName);
+        List<BatchInfo> batchInfoList = this.createBatchesFromCSVFile(connection, job, userInfo);
         // ジョブのステータスをクローズにする
         this.closeJob(connection, job.getId());
         // ジョブが完了するまで待機
@@ -56,19 +52,19 @@ public class App implements CommandLineRunner {
         this.checkResults(connection, job, batchInfoList);
     }
     
-    private ConnectorConfig getConnectorConfig(String userName, String password, String authEndpoint) throws ConnectionException, AsyncApiException {
+    private ConnectorConfig getConnectorConfig(UserInfo userInfo) throws ConnectionException, AsyncApiException {
         System.out.println("-- getConnectorConfig --");
         // ConnectorConfigでセッション情報を保存
         ConnectorConfig partnerConfig = new ConnectorConfig();
-        partnerConfig.setUsername(userName);
-        partnerConfig.setPassword(password);
-        partnerConfig.setAuthEndpoint(authEndpoint);
+        partnerConfig.setUsername(userInfo.userId);
+        partnerConfig.setPassword(userInfo.password);
+        partnerConfig.setAuthEndpoint(userInfo.authEndpoint);
         new PartnerConnection(partnerConfig);
         
         return partnerConfig;
     }
     
-    private BulkConnection getBulkConnection(String userName, String password, String apiVersion, ConnectorConfig partnerConfig) throws ConnectionException, AsyncApiException {
+    private BulkConnection getBulkConnection(UserInfo userInfo, ConnectorConfig partnerConfig) throws ConnectionException, AsyncApiException {
         System.out.println("-- getBulkConnection --");
         // ConnectorConfigにセッションIDをセット。BulkConnectionで使用する。
         ConnectorConfig config = new ConnectorConfig();
@@ -76,7 +72,7 @@ public class App implements CommandLineRunner {
         
         // Bulk APIの接続情報を作成
         String soapEndpoint = partnerConfig.getServiceEndpoint();
-        String restEndpoint = soapEndpoint.substring(0, soapEndpoint.indexOf("Soap/")) + "async/" + apiVersion;
+        String restEndpoint = soapEndpoint.substring(0, soapEndpoint.indexOf("Soap/")) + "async/" + userInfo.apiVersion;
         config.setRestEndpoint(restEndpoint);
         config.setCompression(true);   // Debugしたいときは「false」
         config.setTraceMessage(false); // トレースメッセージを確認したいときは「true」
@@ -97,14 +93,14 @@ public class App implements CommandLineRunner {
         return job;
     }
     
-    private List<BatchInfo> createBatchesFromCSVFile(BulkConnection connection, JobInfo jobInfo, String csvFileName) throws IOException, AsyncApiException {
+    private List<BatchInfo> createBatchesFromCSVFile(BulkConnection connection, JobInfo jobInfo, UserInfo userInfo) throws IOException, AsyncApiException {
         System.out.println("-- createBatchesFromCSVFile --");
         
         List<BatchInfo> batchInfos = new ArrayList<BatchInfo>();
         
         // ファイル読み込み情報作成
         BufferedReader rdr = new BufferedReader(
-            new InputStreamReader(new FileInputStream(csvFileName))
+            new InputStreamReader(new FileInputStream(userInfo.filePath))
         );
         
         // CSVのヘッダー行を読み込み
@@ -224,6 +220,23 @@ public class App implements CommandLineRunner {
             batchInfos.add(batchInfo);
         } finally {
             tmpInputStream.close();
+        }
+    }
+
+    public class UserInfo {
+        String userId;
+        String password;
+        String apiVersion;
+        String authEndpoint;
+        String filePath;
+
+        public UserInfo() {
+            ResourceBundle resouce = ResourceBundle.getBundle("conf.userInfo");
+            this.userId = resouce.getString("userId");
+            this.password = resouce.getString("password");
+            this.apiVersion = resouce.getString("apiVersion");
+            this.authEndpoint = resouce.getString("authEndpoint") + apiVersion;
+            this.filePath = resouce.getString("filePath");
         }
     }
 }
