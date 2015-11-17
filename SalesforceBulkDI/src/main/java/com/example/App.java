@@ -19,35 +19,33 @@ import org.codehaus.jackson.ObjectCodec;
 @ComponentScan
 public class App implements CommandLineRunner {
 
-    public static final String SESSION_ID = "X-SFDC-Session";
-    public static final String CSV_CONTENT_TYPE = "text/csv";
-    
-    private String apiVersion = "34.0";
-    private String authEndpoint = "https://login.salesforce.com/services/Soap/u/" + this.apiVersion;
-
     public static void main(String[] args) {
         SpringApplication.run(App.class, args);
     }
 
     @Override
     public void run(String... strings) throws Exception {
+        // resources→conf→userInfo.propertiesから設定情報取得
         ResourceBundle resouce = ResourceBundle.getBundle("conf.userInfo");
         String userId = resouce.getString("userId");
         String password = resouce.getString("password");
+        String apiVersion = resouce.getString("apiVersion");
+        String authEndpoint = resouce.getString("authEndpoint") + apiVersion;
         String filePath = resouce.getString("filePath");
-
-        this.runDataImport("Account", userId, password, filePath);
+        // バッチ実行
+        this.runDataImport("Account", userId, password, apiVersion, authEndpoint, filePath);
     }
 
-    public void runDataImport(String sobjectType, String userName, String password, String sampleFileName) throws AsyncApiException, ConnectionException, IOException {
+    public void runDataImport(String sobjectType, String userName, String password, String apiVersion, String authEndpoint, String sampleFileName) throws AsyncApiException, ConnectionException, IOException {
         System.out.println("-- runDataImport --");
         // ConnectorConfig情報を作成
-        ConnectorConfig partnerConfig = this.getConnectorConfig(userName, password);
+        ConnectorConfig partnerConfig = this.getConnectorConfig(userName, password, authEndpoint);
         
         // BulkAPIを実行するための接続情報を作成
-        BulkConnection connection = this.getBulkConnection(userName, password, partnerConfig);
+        BulkConnection connection = this.getBulkConnection(userName, password, apiVersion, partnerConfig);
         // ジョブを作成
         JobInfo job = this.createUpsertJob(sobjectType, connection, "Id");
+        
         // CSVファイルから登録データ情報を取得してジョブバッチを作成
         List<BatchInfo> batchInfoList = this.createBatchesFromCSVFile(connection, job, sampleFileName);
         // ジョブのステータスをクローズにする
@@ -58,19 +56,19 @@ public class App implements CommandLineRunner {
         this.checkResults(connection, job, batchInfoList);
     }
     
-    private ConnectorConfig getConnectorConfig(String userName, String password) throws ConnectionException, AsyncApiException {
+    private ConnectorConfig getConnectorConfig(String userName, String password, String authEndpoint) throws ConnectionException, AsyncApiException {
         System.out.println("-- getConnectorConfig --");
         // ConnectorConfigでセッション情報を保存
         ConnectorConfig partnerConfig = new ConnectorConfig();
         partnerConfig.setUsername(userName);
         partnerConfig.setPassword(password);
-        partnerConfig.setAuthEndpoint(this.authEndpoint);
+        partnerConfig.setAuthEndpoint(authEndpoint);
         new PartnerConnection(partnerConfig);
         
         return partnerConfig;
     }
     
-    private BulkConnection getBulkConnection(String userName, String password, ConnectorConfig partnerConfig) throws ConnectionException, AsyncApiException {
+    private BulkConnection getBulkConnection(String userName, String password, String apiVersion, ConnectorConfig partnerConfig) throws ConnectionException, AsyncApiException {
         System.out.println("-- getBulkConnection --");
         // ConnectorConfigにセッションIDをセット。BulkConnectionで使用する。
         ConnectorConfig config = new ConnectorConfig();
@@ -78,7 +76,7 @@ public class App implements CommandLineRunner {
         
         // Bulk APIの接続情報を作成
         String soapEndpoint = partnerConfig.getServiceEndpoint();
-        String restEndpoint = soapEndpoint.substring(0, soapEndpoint.indexOf("Soap/")) + "async/" + this.apiVersion;
+        String restEndpoint = soapEndpoint.substring(0, soapEndpoint.indexOf("Soap/")) + "async/" + apiVersion;
         config.setRestEndpoint(restEndpoint);
         config.setCompression(true);   // Debugしたいときは「false」
         config.setTraceMessage(false); // トレースメッセージを確認したいときは「true」
