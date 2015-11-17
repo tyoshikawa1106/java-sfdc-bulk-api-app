@@ -25,18 +25,48 @@ public class App implements CommandLineRunner {
 
     @Override
     public void run(String... strings) throws Exception {
-        // resources→conf→userInfo.propertiesから設定情報取得
-        ResourceBundle resouce = ResourceBundle.getBundle("conf.userInfo");
-        UserInfo userInfo = new UserInfo();
-        // バッチ実行
-        this.runDataImport("Account", userInfo);
+        try {
+            // resources→conf→userInfo.propertiesから設定情報取得
+            ResourceBundle resouce = ResourceBundle.getBundle("conf.userInfo");
+            // 初期化
+            UserInfo userInfo = new UserInfo();
+            // 値存在判定
+            Boolean isError = this.isEmptyUserInfo(userInfo);
+            // エラー発生時に処理終了
+            if (isError) return;
+            // バッチ実行
+            this.runDataImport("Account", userInfo);
+        } catch(Exception e) {
+            System.out.println("<< ERROR >> " + e);
+            return;
+        }
+    }
+
+    private Boolean isEmptyUserInfo(UserInfo userInfo) {
+        if (userInfo.userId.isEmpty()) {
+            System.out.println("<< ERROR >> ユーザIDの取得に失敗しました。userInfo.propertiesが正しく設定されているか確認してください。");
+            return true;
+        } else if (userInfo.password.isEmpty()) {
+            System.out.println("<< ERROR >> パスワードの取得に失敗しました。userInfo.propertiesが正しく設定されているか確認してください。");
+            return true;
+        } else if (userInfo.apiVersion.isEmpty()) {
+            System.out.println("<< ERROR >> APIバージョンの取得に失敗しました。userInfo.propertiesが正しく設定されているか確認してください。");
+            return true;
+        } else if (userInfo.authEndpoint.isEmpty()) {
+            System.out.println("<< ERROR >> 接続URLの取得に失敗しました。userInfo.propertiesが正しく設定されているか確認してください。");
+            return true;
+        } else if (userInfo.filePath.isEmpty()) {
+            System.out.println("<< ERROR >> ファイルパスの取得に失敗しました。userInfo.propertiesが正しく設定されているか確認してください。");
+            return true;
+        }
+
+        return false;
     }
 
     public void runDataImport(String sobjectType, UserInfo userInfo) throws AsyncApiException, ConnectionException, IOException {
         System.out.println("-- runDataImport --");
         // ConnectorConfig情報を作成
         ConnectorConfig partnerConfig = this.getConnectorConfig(userInfo);
-        
         // BulkAPIを実行するための接続情報を作成
         BulkConnection connection = this.getBulkConnection(userInfo, partnerConfig);
         // ジョブを作成
