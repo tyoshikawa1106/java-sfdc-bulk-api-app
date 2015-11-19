@@ -25,10 +25,10 @@ import com.sforce.ws.ConnectorConfig;
 
 public class AccountDataImport {
 	
-	private SalesforceApiUtil sfdcApiUtil = new SalesforceApiUtil();
-	private int skipErrorCount = 0;
+    private SalesforceApiUtil sfdcApiUtil = new SalesforceApiUtil();
+    private int skipErrorCount = 0;
 	
-	/**
+    /**
      * データインポート処理
      * @param sobjectType オブジェクトAPI名
      * @param userInfo ユーザ情報
