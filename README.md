@@ -37,5 +37,5 @@ $ mvn spring-boot:run
 ##Package
 ```
 $ mvn package
-$ java -jar target/SalesforceBulkDI-1.0.0-SNAPSHOT.jar
+$ java -jar SalesforceBulkDI-1.0.0-SNAPSHOT.jar
 ```
