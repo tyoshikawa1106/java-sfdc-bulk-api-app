@@ -343,8 +343,8 @@ public class App implements CommandLineRunner {
         PartnerConnection partnerConnection = null;
         String result = null;
         try {
-            partnerConnection = com.sforce.soap.partner.Connector.newConnection(partnerConfig);
-            System.out.println(partnerConnection);
+            // PartnerConnectionを作成
+        	partnerConnection = com.sforce.soap.partner.Connector.newConnection(partnerConfig);
             
             // 現在の日時を取得
             Date date = new Date();
