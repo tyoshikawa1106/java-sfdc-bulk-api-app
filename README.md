@@ -1,5 +1,5 @@
 # java-sfdc-bulk-api-app
-## Create Properties
+## Create Properties File
 ```
 src → main → resources → conf → userInfo.properties
 ```
