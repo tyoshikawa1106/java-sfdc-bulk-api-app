@@ -25,10 +25,17 @@ public class App implements CommandLineRunner {
 
     private int skipErrorCount = 0;
 
+    /**
+     * main
+     */
     public static void main(String[] args) {
         SpringApplication.run(App.class, args);
     }
-
+    
+    /**
+     * run
+     * @throws Exception
+     */
     @Override
     public void run(String... strings) throws Exception {
         try {
@@ -50,6 +57,11 @@ public class App implements CommandLineRunner {
         System.exit(0);
     }
 
+    /**
+     * ユーザ情報の値存在判定
+     * @param userInfo ユーザ情報
+     * @return 判定結果
+     */
     private Boolean isEmptyUserInfo(UserInfo userInfo) {
         if (userInfo.userId.isEmpty()) {
             System.out.println("<< ERROR >> ユーザIDの取得に失敗しました。userInfo.propertiesが正しく設定されているか確認してください。");
@@ -71,6 +83,14 @@ public class App implements CommandLineRunner {
         return false;
     }
 
+    /**
+     * データインポート処理
+     * @param sobjectType オブジェクトAPI名
+     * @param userInfo ユーザ情報
+     * @throws AsyncApiException
+     * @throws ConnectionException
+     * @throws IOException
+     */
     public void runDataImport(String sobjectType, UserInfo userInfo) throws AsyncApiException, ConnectionException, IOException {
         System.out.println("-- runDataImport --");
         // ConnectorConfig情報を作成
@@ -93,7 +113,7 @@ public class App implements CommandLineRunner {
         // エラーの操作の結果をチェック
         this.checkResults(connection, resultJob, batchInfoList);
         // エラー件数のチェック
-        Boolean isError = this.isErrorRecords(connection, resultJob);
+        Boolean isError = this.isErrorRecords(resultJob);
         // 異常なエラーが発生している場合、エラーオブジェクトに登録
         if (isError) {
             System.out.println("異常なエラーです : 【" + resultJob.getId() + "】");
@@ -104,18 +124,31 @@ public class App implements CommandLineRunner {
         String taskId = this.createTask(partnerConfig, resultJob);
     }
     
+    /**
+     * ConnectorConfigにセッション情報を保存
+     * @param userInfo ユーザ情報
+     * @return ConnectorConfig
+     * @throws ConnectionException
+     * @throws AsyncApiException
+     */
     private ConnectorConfig getConnectorConfig(UserInfo userInfo) throws ConnectionException, AsyncApiException {
         System.out.println("-- getConnectorConfig --");
-        // ConnectorConfigでセッション情報を保存
         ConnectorConfig partnerConfig = new ConnectorConfig();
         partnerConfig.setUsername(userInfo.userId);
         partnerConfig.setPassword(userInfo.password);
         partnerConfig.setAuthEndpoint(userInfo.authEndpoint);
         new PartnerConnection(partnerConfig);
-        
         return partnerConfig;
     }
     
+    /**
+     * Bulk API接続情報取得
+     * @param userInfo ユーザ情報
+     * @param partnerConfig セッション情報
+     * @return BulkConnection
+     * @throws ConnectionException
+     * @throws AsyncApiException
+     */
     private BulkConnection getBulkConnection(UserInfo userInfo, ConnectorConfig partnerConfig) throws ConnectionException, AsyncApiException {
         System.out.println("-- getBulkConnection --");
         // ConnectorConfigにセッションIDをセット。BulkConnectionで使用する。
@@ -134,6 +167,14 @@ public class App implements CommandLineRunner {
         return connection;
     }
     
+    /**
+     * ジョブの作成
+     * @param sobjectType オブジェクトAPI名
+     * @param connection Bulk API接続情報
+     * @param externalIdFieldName 外部ID項目のAPI名
+     * @return ジョブ情報
+     * @throws AsyncApiException
+     */
     private JobInfo createUpsertJob(String sobjectType, BulkConnection connection, String externalIdFieldName) throws AsyncApiException {
         System.out.println("-- createUpsertJob --");
         JobInfo job = new JobInfo();
@@ -145,6 +186,15 @@ public class App implements CommandLineRunner {
         return job;
     }
     
+    /**
+     * CSVの読み込みとバッチの作成
+     * @param connection
+     * @param jobInfo
+     * @param userInfo
+     * @return バッチ情報
+     * @throws IOException
+     * @throws AsyncApiException
+     */
     private List<BatchInfo> createBatchesFromCSVFile(BulkConnection connection, JobInfo jobInfo, UserInfo userInfo) throws IOException, AsyncApiException {
         System.out.println("-- createBatchesFromCSVFile --");
         
@@ -158,6 +208,7 @@ public class App implements CommandLineRunner {
         // CSVのヘッダー行を読み込み
         byte[] headerBytes = (rdr.readLine() + "\n").getBytes("UTF-8");
         int headerBytesLength = headerBytes.length;
+        // ヘッダーの項目名をSalesforceのAPI名に置換
         String headerStr = this.doCsvHeaderReplace(headerBytes);
         
         // ファイル情報作成
@@ -203,12 +254,24 @@ public class App implements CommandLineRunner {
         return batchInfos;
     }
 
+    /**
+     * ヘッダー行の置換処理
+     * @param headerBytes ヘッダー行
+     * @return 置換結果
+     * @throws IOException
+     */
     private String doCsvHeaderReplace(byte[] headerBytes) throws IOException {
         String headerStr = new String(headerBytes,"UTF-8");
         headerStr = headerStr.replace("ACCOUNT_NO", "ACCOUNTNUMBER");
         return headerStr;
     }
     
+    /**
+     * ジョブのクローズ
+     * @param connection BulkAPIの接続情報
+     * @param jobId ジョブID
+     * @throws AsyncApiException
+     */
     private void closeJob(BulkConnection connection, String jobId) throws AsyncApiException {
         System.out.println("-- closeJob --");
         JobInfo job = new JobInfo();
@@ -217,6 +280,13 @@ public class App implements CommandLineRunner {
         connection.updateJob(job);
     }
     
+    /**
+     * ジョブのクローズ操作が反映されるまで待機
+     * @param connection BulkAPIの接続情報
+     * @param job ジョブ情報
+     * @param batchInfoList バッチ情報
+     * @throws AsyncApiException
+     */
     private void awaitCompletion(BulkConnection connection, JobInfo job, List<BatchInfo> batchInfoList) throws AsyncApiException {
         System.out.println("-- awaitCompletion --");
         
@@ -242,6 +312,14 @@ public class App implements CommandLineRunner {
         }
     }
 
+    /**
+     * 処理結果チェック
+     * @param connection BulkAPIの接続情報
+     * @param job ジョブ情報
+     * @param batchInfoList バッチ情報
+     * @throws AsyncApiException
+     * @throws IOException
+     */
     private void checkResults(BulkConnection connection, JobInfo job, List<BatchInfo> batchInfoList) throws AsyncApiException, IOException {
         System.out.println("-- checkResults --");
 
@@ -276,6 +354,16 @@ public class App implements CommandLineRunner {
         }
     }
 
+    /**
+     * バッチの作成
+     * @param tmpOut ファイル出力情報
+     * @param tmpFile ファイル情報
+     * @param batchInfos バッチ情報
+     * @param connection BulkAPIの接続情報
+     * @param jobInfo ジョブ情報
+     * @throws IOException
+     * @throws AsyncApiException
+     */
     private void createBatch(FileOutputStream tmpOut, File tmpFile, List<BatchInfo> batchInfos, BulkConnection connection, JobInfo jobInfo) throws IOException, AsyncApiException {
         System.out.println("-- createBatch --");
         tmpOut.flush();
@@ -289,6 +377,12 @@ public class App implements CommandLineRunner {
         }
     }
 
+    /**
+     * 発生したエラーが検知不要のエラー情報と一致するか判定
+     * @param error エラーメッセージ
+     * @param skipErrorList 検知不要エラー情報
+     * @return 判定結果
+     */
     private Boolean isSkipError(String error, List<String> skipErrorList) {
         for (String key : skipErrorList) {
             if (error.indexOf(key) != -1) {
@@ -298,6 +392,10 @@ public class App implements CommandLineRunner {
         return false;
     }
 
+    /**
+     * 検知エラー情報の取得
+     * @return 検知エラー情報 
+     */
     private ArrayList<String> getSkipErrorList() {
         // 検知不要のエラー情報(エラーメッセージ)を取得
         ArrayList<String> skipErrorList = new ArrayList<String>();
@@ -305,7 +403,12 @@ public class App implements CommandLineRunner {
         return skipErrorList;
     }
     
-    private Boolean isErrorRecords(BulkConnection connection, JobInfo resultJob) {
+    /**
+     * ジョブのエラー件数と検知不要エラー件数の比較
+     * @param resultJob ジョブ情報
+     * @return 比較結果
+     */
+    private Boolean isErrorRecords(JobInfo resultJob) {
         // 異常なエラーが発生しているか確認
         if (resultJob.getNumberRecordsFailed() != this.skipErrorCount) {
             return true;
@@ -313,38 +416,20 @@ public class App implements CommandLineRunner {
             return false;
         }
     }
-
-    public class UserInfo {
-        String userId;
-        String password;
-        String apiVersion;
-        String authEndpoint;
-        String filePath;
-
-        public UserInfo() {
-            InputStream in;
-            try {
-                in = new BufferedInputStream(new FileInputStream("./conf/userInfo.properties"));
-                ResourceBundle resouce = new PropertyResourceBundle(in);
-                this.userId = resouce.getString("userId");
-                this.password = resouce.getString("password");
-                this.apiVersion = resouce.getString("apiVersion");
-                this.authEndpoint = resouce.getString("authEndpoint") + apiVersion;
-                this.filePath = resouce.getString("filePath");
-            } catch (FileNotFoundException e) {
-                System.out.println("<< FileNotFoundException >> " + e.getMessage());
-            } catch (IOException e) {
-                System.out.println("<< IOException >> " + e.getMessage());
-            }
-        }
-    }
-
+    
+    /**
+     * ジョブ通知用のタスクレコードを作成
+     * @param partnerConfig セッション情報
+     * @param job ジョブ情報
+     * @return レコードID
+     * @throws ConnectionException
+     */
     public String createTask(ConnectorConfig partnerConfig, JobInfo job) throws ConnectionException {
         PartnerConnection partnerConnection = null;
         String result = null;
         try {
             // PartnerConnectionを作成
-        	partnerConnection = com.sforce.soap.partner.Connector.newConnection(partnerConfig);
+            partnerConnection = com.sforce.soap.partner.Connector.newConnection(partnerConfig);
             
             // 現在の日時を取得
             Date date = new Date();
@@ -381,5 +466,35 @@ public class App implements CommandLineRunner {
             partnerConnection.logout();
         }
         return result;
+    }
+
+    /**
+     * ユーザ情報クラス
+     */
+    public class UserInfo {
+        String userId;
+        String password;
+        String apiVersion;
+        String authEndpoint;
+        String filePath;
+
+        /**
+         * コンストラクタ
+         */
+        public UserInfo() {
+            try {
+                InputStream in = new BufferedInputStream(new FileInputStream("./conf/userInfo.properties"));
+                ResourceBundle resouce = new PropertyResourceBundle(in);
+                this.userId = resouce.getString("userId");
+                this.password = resouce.getString("password");
+                this.apiVersion = resouce.getString("apiVersion");
+                this.authEndpoint = resouce.getString("authEndpoint") + apiVersion;
+                this.filePath = resouce.getString("filePath");
+            } catch (FileNotFoundException e) {
+                System.out.println("<< FileNotFoundException >> " + e.getMessage());
+            } catch (IOException e) {
+                System.out.println("<< IOException >> " + e.getMessage());
+            }
+        }
     }
 }
