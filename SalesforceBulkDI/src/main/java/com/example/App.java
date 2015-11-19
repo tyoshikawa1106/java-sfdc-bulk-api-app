@@ -39,7 +39,7 @@ public class App implements CommandLineRunner {
             // 取引先インポートバッチ実行
             this.runDataImport("Account", userInfo);
         } catch(Exception e) {
-            System.out.println("<< ERROR >> " + e);
+            System.out.println("<< Exception >> " + e);
             System.exit(1);
         }
 
@@ -326,9 +326,9 @@ public class App implements CommandLineRunner {
                 this.authEndpoint = resouce.getString("authEndpoint") + apiVersion;
                 this.filePath = resouce.getString("filePath");
             } catch (FileNotFoundException e) {
-                e.printStackTrace();
+                System.out.println("<< FileNotFoundException >> " + e.getMessage());
             } catch (IOException e) {
-                e.printStackTrace();
+                System.out.println("<< IOException >> " + e.getMessage());
             }
         }
     }
