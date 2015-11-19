@@ -19,6 +19,8 @@ import org.codehaus.jackson.ObjectCodec;
 @ComponentScan
 public class App implements CommandLineRunner {
 
+    private int skipErrorCount = 0;
+
     public static void main(String[] args) {
         SpringApplication.run(App.class, args);
     }
@@ -26,8 +28,6 @@ public class App implements CommandLineRunner {
     @Override
     public void run(String... strings) throws Exception {
         try {
-            // resources→conf→userInfo.propertiesから設定情報取得
-            ResourceBundle resouce = ResourceBundle.getBundle("conf.userInfo");
             // 初期化
             UserInfo userInfo = new UserInfo();
             // 値存在判定
@@ -82,8 +82,18 @@ public class App implements CommandLineRunner {
         this.closeJob(connection, job.getId());
         // ジョブが完了するまで待機
         this.awaitCompletion(connection, job, batchInfoList);
+
+        // 最新のジョブ情報を取得
+        JobInfo resultJob = connection.getJobStatus(job.getId());
         // エラーの操作の結果をチェック
-        this.checkResults(connection, job, batchInfoList);
+        this.checkResults(connection, resultJob, batchInfoList);
+        // エラー件数のチェック
+        Boolean isError = this.isErrorRecords(connection, resultJob);
+        // 異常なエラーが発生している場合、エラーオブジェクトに登録
+        if (isError) {
+            System.out.println("異常なエラーです : 【" + resultJob.getId() + "】");
+            System.exit(1);
+        }
     }
     
     private ConnectorConfig getConnectorConfig(UserInfo userInfo) throws ConnectionException, AsyncApiException {
@@ -136,13 +146,15 @@ public class App implements CommandLineRunner {
         BufferedReader rdr = new BufferedReader(
             new InputStreamReader(new FileInputStream(userInfo.filePath))
         );
-        
+
         // CSVのヘッダー行を読み込み
         byte[] headerBytes = (rdr.readLine() + "\n").getBytes("UTF-8");
         int headerBytesLength = headerBytes.length;
+        String headerStr = new  String(headerBytes,"UTF-8");
+        headerStr = headerStr.replace("ACCOUNT_NO", "ACCOUNTNUMBER");
         
         // ファイル情報作成
-        File tmpFile = File.createTempFile("bulkAPIInsert", ".csv");
+        File tmpFile = File.createTempFile("tmpCsvFile", ".csv");
         
         // CSVをバッチ実行用に分割
         try {
@@ -163,7 +175,8 @@ public class App implements CommandLineRunner {
                 }
                 if (currentBytes == 0) {
                     tmpOut = new FileOutputStream(tmpFile);
-                    tmpOut.write(headerBytes);
+                    // 置換したヘッダーをBytesに変換して処理を実行
+                    tmpOut.write(headerStr.getBytes());
                     currentBytes = headerBytesLength;
                     currentLines = 1;
                 }
@@ -218,6 +231,9 @@ public class App implements CommandLineRunner {
 
     private void checkResults(BulkConnection connection, JobInfo job, List<BatchInfo> batchInfoList) throws AsyncApiException, IOException {
         System.out.println("-- checkResults --");
+
+        // 対象外エラー情報取得
+        ArrayList<String> skipErrorList = this.getSkipErrorList();
         
         // バッチ情報をループしてエラーチェック
         for (BatchInfo b : batchInfoList) {
@@ -235,10 +251,13 @@ public class App implements CommandLineRunner {
 
                 String id = resultInfo.get("Id");
                 String error = resultInfo.get("Error");
-                if (success && created) {
-                    System.out.println("Created row with id " + id);
-                } else if (!success) {
-                    System.out.println("Failed with error: " + error);
+
+                if (!success) {
+                    // 発生しても問題ないエラーの件数をカウント
+                    Boolean isSkip = this.isSkipError(error, skipErrorList);
+                    if (isSkip) {
+                        this.skipErrorCount++;
+                    }
                 }
             }
         }
@@ -257,6 +276,38 @@ public class App implements CommandLineRunner {
         }
     }
 
+    private Boolean isSkipError(String error, List<String> skipErrorList) {
+        for (String key : skipErrorList) {
+
+            System.out.println("error = " + error);
+            System.out.println("key = " + key);
+            
+            if (error.indexOf(key) != -1) {
+                // 検知不要のエラーメッセージと一致
+                System.out.println("検知不要エラーと一致しました。");
+                
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private ArrayList<String> getSkipErrorList() {
+        // 検知不要のエラー情報(エラーメッセージ)を取得
+        ArrayList<String> skipErrorList = new ArrayList<String>();
+        skipErrorList.add("[Allowable Error]");
+        return skipErrorList;
+    }
+    
+    private Boolean isErrorRecords(BulkConnection connection, JobInfo resultJob) {
+        // 異常なエラーが発生しているか確認
+        if (resultJob.getNumberRecordsFailed() != this.skipErrorCount) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
     public class UserInfo {
         String userId;
         String password;
@@ -265,12 +316,20 @@ public class App implements CommandLineRunner {
         String filePath;
 
         public UserInfo() {
-            ResourceBundle resouce = ResourceBundle.getBundle("conf.userInfo");
-            this.userId = resouce.getString("userId");
-            this.password = resouce.getString("password");
-            this.apiVersion = resouce.getString("apiVersion");
-            this.authEndpoint = resouce.getString("authEndpoint") + apiVersion;
-            this.filePath = resouce.getString("filePath");
+            InputStream in;
+            try {
+                in = new BufferedInputStream(new FileInputStream("./conf/userInfo.properties"));
+                ResourceBundle resouce = new PropertyResourceBundle(in);
+                this.userId = resouce.getString("userId");
+                this.password = resouce.getString("password");
+                this.apiVersion = resouce.getString("apiVersion");
+                this.authEndpoint = resouce.getString("authEndpoint") + apiVersion;
+                this.filePath = resouce.getString("filePath");
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
     }
 }
