@@ -24,7 +24,7 @@ SalesforceBulkDI
 
 ###Product
 ```
-SalesforceBulkDI
+ProductFolder
 ├── SalesforceBulkDI-1.0.0-SNAPSHOT.jar
 ├── conf
 │   └── userInfo.properties
