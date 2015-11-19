@@ -370,8 +370,7 @@ public class App implements CommandLineRunner {
                     for (int i = 0; i < results[j].getErrors().length; i++) {
                         Error err = results[j].getErrors()[i];
                         System.out.println("Errors were found on item " + j);
-                        System.out.println("Error code: " +
-                        err.getStatusCode().toString());
+                        System.out.println("Error code: " + err.getStatusCode().toString());
                         System.out.println("Error message: " + err.getMessage());
                     }
                 }
