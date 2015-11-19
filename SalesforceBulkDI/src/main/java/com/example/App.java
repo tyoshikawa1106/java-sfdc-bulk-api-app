@@ -341,15 +341,15 @@ public class App implements CommandLineRunner {
     }
 
     public String createTask(ConnectorConfig partnerConfig, JobInfo job) throws ConnectionException {
-    	PartnerConnection partnerConnection = null;
+        PartnerConnection partnerConnection = null;
         String result = null;
         try {
-        	partnerConnection = com.sforce.soap.partner.Connector.newConnection(partnerConfig);
-        	System.out.println(partnerConnection);
-        	
-        	// 現在の日時を取得
-        	Date date = new Date();
-        	
+            partnerConnection = com.sforce.soap.partner.Connector.newConnection(partnerConfig);
+            System.out.println(partnerConnection);
+            
+            // 現在の日時を取得
+            Date date = new Date();
+            
             // Task Objectを作成
             SObject task = new SObject();
             task.setType("Task");
@@ -380,7 +380,7 @@ public class App implements CommandLineRunner {
         } catch (ConnectionException e) {
             System.out.println("<< ConnectionException >> " + e.getMessage());
         } finally {
-        	partnerConnection.logout();
+            partnerConnection.logout();
         }
         return result;
     }
