@@ -12,6 +12,26 @@ authEndpoint = https://<login or test>.salesforce.com/services/Soap/u/
 filePath = <Your File Path>/accounts.csv
 ```
 
+## Properties File Path
+###Debug
+```
+SalesforceBulkDI
+├── conf
+│   └── userInfo.properties
+├── pom.xml
+├── src
+```
+
+###Product
+```
+SalesforceBulkDI
+├── SalesforceBulkDI-1.0.0-SNAPSHOT.jar
+├── conf
+│   └── userInfo.properties
+└── data
+    └── accounts.csv
+```
+
 ##Run
 ```
 $ cd SalesforceBulkDI
