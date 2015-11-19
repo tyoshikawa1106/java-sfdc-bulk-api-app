@@ -1,3 +1,10 @@
 .DS_Store
-target/
+.classpath
+.project
+.settings
+.metadata
+.recommenders
+RemoteSystemsTempFiles
+Services
+target
 userInfo.properties
