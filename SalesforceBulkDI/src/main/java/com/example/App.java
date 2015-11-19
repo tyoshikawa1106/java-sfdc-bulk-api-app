@@ -9,7 +9,12 @@ import java.util.ResourceBundle;
 import java.io.*;
 import java.util.*;
 import com.sforce.async.*;
+import com.sforce.soap.partner.Error;
 import com.sforce.soap.partner.PartnerConnection;
+import com.sforce.soap.partner.sobject.*;
+import com.sforce.soap.partner.sobject.SObject;
+import com.sforce.soap.partner.*;
+import com.sforce.soap.partner.SaveResult;
 import com.sforce.ws.ConnectionException;
 import com.sforce.ws.ConnectorConfig;
 import org.codehaus.jackson.ObjectCodec;
@@ -71,6 +76,7 @@ public class App implements CommandLineRunner {
         System.out.println("-- runDataImport --");
         // ConnectorConfig情報を作成
         ConnectorConfig partnerConfig = this.getConnectorConfig(userInfo);
+        
         // BulkAPIを実行するための接続情報を作成
         BulkConnection connection = this.getBulkConnection(userInfo, partnerConfig);
         // ジョブを作成
@@ -94,6 +100,9 @@ public class App implements CommandLineRunner {
             System.out.println("異常なエラーです : 【" + resultJob.getId() + "】");
             System.exit(1);
         }
+        
+        // ジョブ実行通知レコードを作成
+        String taskId = this.createTask(partnerConfig, resultJob);
     }
     
     private ConnectorConfig getConnectorConfig(UserInfo userInfo) throws ConnectionException, AsyncApiException {
@@ -150,8 +159,7 @@ public class App implements CommandLineRunner {
         // CSVのヘッダー行を読み込み
         byte[] headerBytes = (rdr.readLine() + "\n").getBytes("UTF-8");
         int headerBytesLength = headerBytes.length;
-        String headerStr = new  String(headerBytes,"UTF-8");
-        headerStr = headerStr.replace("ACCOUNT_NO", "ACCOUNTNUMBER");
+        String headerStr = this.doCsvHeaderReplace(headerBytes);
         
         // ファイル情報作成
         File tmpFile = File.createTempFile("tmpCsvFile", ".csv");
@@ -194,6 +202,12 @@ public class App implements CommandLineRunner {
             rdr.close();
         }
         return batchInfos;
+    }
+
+    private String doCsvHeaderReplace(byte[] headerBytes) throws IOException {
+        String headerStr = new String(headerBytes,"UTF-8");
+        headerStr = headerStr.replace("ACCOUNT_NO", "ACCOUNTNUMBER");
+        return headerStr;
     }
     
     private void closeJob(BulkConnection connection, String jobId) throws AsyncApiException {
@@ -278,14 +292,7 @@ public class App implements CommandLineRunner {
 
     private Boolean isSkipError(String error, List<String> skipErrorList) {
         for (String key : skipErrorList) {
-
-            System.out.println("error = " + error);
-            System.out.println("key = " + key);
-            
             if (error.indexOf(key) != -1) {
-                // 検知不要のエラーメッセージと一致
-                System.out.println("検知不要エラーと一致しました。");
-                
                 return true;
             }
         }
@@ -331,5 +338,50 @@ public class App implements CommandLineRunner {
                 System.out.println("<< IOException >> " + e.getMessage());
             }
         }
+    }
+
+    public String createTask(ConnectorConfig partnerConfig, JobInfo job) throws ConnectionException {
+    	PartnerConnection partnerConnection = null;
+        String result = null;
+        try {
+        	partnerConnection = com.sforce.soap.partner.Connector.newConnection(partnerConfig);
+        	System.out.println(partnerConnection);
+        	
+        	// 現在の日時を取得
+        	Date date = new Date();
+        	
+            // Task Objectを作成
+            SObject task = new SObject();
+            task.setType("Task");
+            task.setField("Subject", "取引先インポートバッチ実行通知");
+            task.setField("ActivityDate", date);
+            task.setField("Priority", "High");
+            task.setField("Description", "取引先インポートバッチが実行されました。\n取り込みジョブを確認してください。\n【ジョブID = " + job.getId() + "】");
+            // sObjectのリストに追加
+            SObject[] tasks = new SObject[1];
+            tasks[0] = task;
+            // INSERTを実行
+            SaveResult[] results = partnerConnection.create(tasks);
+
+            // 処理結果を判定
+            for (int j = 0; j < results.length; j++) {
+                if (results[j].isSuccess()) {
+                    result = results[j].getId();
+                } else {
+                    for (int i = 0; i < results[j].getErrors().length; i++) {
+                        Error err = results[j].getErrors()[i];
+                        System.out.println("Errors were found on item " + j);
+                        System.out.println("Error code: " +
+                        err.getStatusCode().toString());
+                        System.out.println("Error message: " + err.getMessage());
+                    }
+                }
+            }
+        } catch (ConnectionException e) {
+            System.out.println("<< ConnectionException >> " + e.getMessage());
+        } finally {
+        	partnerConnection.logout();
+        }
+        return result;
     }
 }
