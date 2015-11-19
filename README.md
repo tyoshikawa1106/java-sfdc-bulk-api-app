@@ -1,10 +1,6 @@
 # java-sfdc-bulk-api-app
 ## Create Properties File
 ```
-src → main → resources → conf → userInfo.properties
-```
-
-```
 userId = <Your UserID>
 password = <Your Password>
 apiVersion = 34.0
