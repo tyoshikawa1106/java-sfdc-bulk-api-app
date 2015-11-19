@@ -1,5 +1,6 @@
 # java-sfdc-bulk-api-app
 ## Create Properties File
+###userInfo.properties
 ```
 userId = <Your UserID>
 password = <Your Password>
