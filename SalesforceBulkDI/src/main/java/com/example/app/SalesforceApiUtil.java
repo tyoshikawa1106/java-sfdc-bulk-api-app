@@ -231,7 +231,7 @@ public class SalesforceApiUtil {
         tmpOut.close();
         FileInputStream tmpInputStream = new FileInputStream(tmpFile);
         try {
-            BatchInfo batchInfo = connection.createBatchFromStream(jobInfo, tmpInputStream);
+            BatchInfo batchInfo = connection.createBatchFromForeignCsvStream(jobInfo, tmpInputStream, "UTF-8");
             batchInfos.add(batchInfo);
         } finally {
             tmpInputStream.close();
