@@ -104,8 +104,9 @@ public class SalesforceApiUtil {
         System.out.println("-- createUpsertJob --");
         JobInfo job = new JobInfo();
         job.setObject(sobjectType);
-        job.setOperation(OperationEnum.upsert);
-        job.setExternalIdFieldName(externalIdFieldName);
+        job.setOperation(OperationEnum.insert);
+        //job.setOperation(OperationEnum.upsert);
+        //job.setExternalIdFieldName(externalIdFieldName);
         job.setContentType(ContentType.CSV);
         job = connection.createJob(job);
         return job;
