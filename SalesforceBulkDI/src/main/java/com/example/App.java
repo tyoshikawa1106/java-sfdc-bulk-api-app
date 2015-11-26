@@ -50,8 +50,10 @@ public class App implements CommandLineRunner {
             if (isError) {
                 System.exit(1);
             }
+            // ファイル読み込み情報作成
+            BufferedReader rdr = this.accountDataImport.getBufferedReader(userInfo.filePath);
             // 取引先インポートバッチ実行
-            this.accountDataImport.runDataImport("Account", userInfo);
+            this.accountDataImport.runDataImport("Account", userInfo, rdr);
         } catch(Exception e) {
             System.out.println("<< Exception >> " + e);
             System.exit(1);
