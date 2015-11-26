@@ -24,9 +24,9 @@ import org.codehaus.jackson.ObjectCodec;
 @EnableAutoConfiguration
 @ComponentScan
 public class App implements CommandLineRunner {
-	
-	private SalesforceApiUtil sfdcApiUtil = new SalesforceApiUtil();
-	private AccountDataImport accountDataImport = new AccountDataImport();
+    
+    private SalesforceApiUtil sfdcApiUtil = new SalesforceApiUtil();
+    private AccountDataImport accountDataImport = new AccountDataImport();
 
     /**
      * main
@@ -42,7 +42,7 @@ public class App implements CommandLineRunner {
     @Override
     public void run(String... strings) throws Exception {
         try {
-            // 初期化
+            // ユーザ情報取得
             UserInfo userInfo = new UserInfo();
             // 値存在判定
             Boolean isError = this.sfdcApiUtil.isEmptyUserInfo(userInfo);
