@@ -5,6 +5,7 @@ import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Date;
@@ -26,7 +27,6 @@ import com.sforce.ws.ConnectorConfig;
 public class AccountDataImport {
 	
     private SalesforceApiUtil sfdcApiUtil = new SalesforceApiUtil();
-    private int skipErrorCount = 0;
 	
     /**
      * データインポート処理
@@ -36,7 +36,7 @@ public class AccountDataImport {
      * @throws ConnectionException
      * @throws IOException
      */
-    public void runDataImport(String sobjectType, UserInfo userInfo) throws AsyncApiException, ConnectionException, IOException {
+    public void runDataImport(String sobjectType, UserInfo userInfo, BufferedReader rdr) throws AsyncApiException, ConnectionException, IOException {
         System.out.println("-- runDataImport --");
         // ConnectorConfig情報を作成
         ConnectorConfig partnerConfig = this.sfdcApiUtil.getConnectorConfig(userInfo);
@@ -45,13 +45,15 @@ public class AccountDataImport {
         BulkConnection connection = this.sfdcApiUtil.getBulkConnection(userInfo, partnerConfig);
         // ジョブを作成
         JobInfo job = this.sfdcApiUtil.createUpsertJob(sobjectType, connection, "Id");
-        
-        // ファイル読み込み情報作成
-        BufferedReader rdr = this.getBufferedReader(userInfo.filePath);
+
+        // CSVファイル変換仕様のアップロード(項目のマッピング)
+        String specFileName = "./conf/spec.csv";
+        try (InputStream in = new FileInputStream(specFileName)) {
+            connection.createTransformationSpecFromStream(job, in);
+        }
+
         // CSVのヘッダー行を読み込み
         byte[] headerBytes = (rdr.readLine() + "\n").getBytes("UTF-8");
-        // ヘッダー行を置換
-        headerBytes = this.doCsvHeaderReplace(headerBytes);
         
         // CSVファイルから登録データ情報を取得してジョブバッチを作成
         List<BatchInfo> batchInfoList = this.sfdcApiUtil.createBatchesFromCSVFile(connection, job, rdr, headerBytes);
@@ -62,10 +64,10 @@ public class AccountDataImport {
 
         // 最新のジョブ情報を取得
         JobInfo resultJob = connection.getJobStatus(job.getId());
-        // エラーの操作の結果をチェック
-        this.checkResults(connection, resultJob, batchInfoList);
+        // エラーの操作の結果をチェック (検知不要のエラー件数も取得)
+        int skipErrorCount = this.checkResults(connection, resultJob, batchInfoList);
         // エラー件数のチェック
-        Boolean isError = this.isErrorRecords(resultJob);
+        Boolean isError = this.isErrorRecords(resultJob, skipErrorCount);
         // 異常なエラーが発生している場合、エラーオブジェクトに登録
         if (isError) {
             System.out.println("異常なエラーです : 【" + resultJob.getId() + "】");
@@ -83,23 +85,11 @@ public class AccountDataImport {
      * @return BufferedReader変数
      * @throws FileNotFoundException
      */
-    private BufferedReader getBufferedReader(String filePath) throws FileNotFoundException {
+    public BufferedReader getBufferedReader(String filePath) throws FileNotFoundException {
     	BufferedReader rdr = new BufferedReader(
             new InputStreamReader(new FileInputStream(filePath))
         );
     	return rdr;
-    }
-
-    /**
-     * ヘッダー行の置換処理
-     * @param headerBytes ヘッダー行
-     * @return 置換結果
-     * @throws IOException
-     */
-    private byte[] doCsvHeaderReplace(byte[] headerBytes) throws IOException {
-        String headerStr = new String(headerBytes,"UTF-8");
-        headerStr = headerStr.replace("ACCOUNT_NO", "ACCOUNTNUMBER");
-        return headerStr.getBytes();
     }
 
     /**
@@ -110,11 +100,13 @@ public class AccountDataImport {
      * @throws AsyncApiException
      * @throws IOException
      */
-    private void checkResults(BulkConnection connection, JobInfo job, List<BatchInfo> batchInfoList) throws AsyncApiException, IOException {
+    private int checkResults(BulkConnection connection, JobInfo job, List<BatchInfo> batchInfoList) throws AsyncApiException, IOException {
         System.out.println("-- checkResults --");
 
         // 対象外エラー情報取得
         ArrayList<String> skipErrorList = this.getSkipErrorList();
+        // 検知不要エラー件数
+        int skipErrorCount = 0;
         
         // バッチ情報をループしてエラーチェック
         for (BatchInfo b : batchInfoList) {
@@ -134,11 +126,13 @@ public class AccountDataImport {
                     // 発生しても問題ないエラーの件数をカウント
                     Boolean isSkip = this.isSkipError(error, skipErrorList);
                     if (isSkip) {
-                        this.skipErrorCount++;
+                        skipErrorCount++;
                     }
                 }
             }
         }
+
+        return skipErrorCount;
     }
 
     /**
@@ -148,6 +142,7 @@ public class AccountDataImport {
      * @return 判定結果
      */
     private Boolean isSkipError(String error, List<String> skipErrorList) {
+    	System.out.println("error = " + error);
         for (String key : skipErrorList) {
             if (error.indexOf(key) != -1) {
                 return true;
@@ -172,9 +167,12 @@ public class AccountDataImport {
      * @param resultJob ジョブ情報
      * @return 比較結果
      */
-    private Boolean isErrorRecords(JobInfo resultJob) {
+    private Boolean isErrorRecords(JobInfo resultJob, int skipErrorCount) {
         // 異常なエラーが発生しているか確認
-        if (resultJob.getNumberRecordsFailed() != this.skipErrorCount) {
+    	System.out.println("NumberRecordsFailed = " + resultJob.getNumberRecordsFailed());
+    	System.out.println("SkipErrorCount = " + skipErrorCount);
+    	
+        if (resultJob.getNumberRecordsFailed() != skipErrorCount) {
             return true;
         } else {
             return false;
