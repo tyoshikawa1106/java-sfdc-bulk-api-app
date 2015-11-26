@@ -8,6 +8,11 @@ apiVersion = 34.0
 authEndpoint = https://<login or test>.salesforce.com/services/Soap/u/
 filePath = <Your File Path>/accounts.csv
 ```
+###spec.csv
+Salesforce Field,Csv Header,Value,Hint
+NAME,NAME,,
+ACCOUNTNUMBER,NUMBER,,
+###
 
 ## Properties File Path
 ###Debug
@@ -15,6 +20,7 @@ filePath = <Your File Path>/accounts.csv
 SalesforceBulkDI
 ├── conf
 │   └── userInfo.properties
+│   └── spec.csv
 ├── pom.xml
 ├── src
 ```
@@ -25,6 +31,7 @@ ProductFolder
 ├── SalesforceBulkDI-1.0.0-SNAPSHOT.jar
 ├── conf
 │   └── userInfo.properties
+│   └── spec.csv
 └── data
     └── accounts.csv
 ```
