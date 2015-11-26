@@ -8,16 +8,11 @@ apiVersion = 34.0
 authEndpoint = https://<login or test>.salesforce.com/services/Soap/u/
 filePath = <Your File Path>/accounts.csv
 ```
-###spec.csv
-Salesforce Field,Csv Header,Value,Hint
-NAME,NAME,,
-ACCOUNTNUMBER,NUMBER,,
-###
 
 ## Properties File Path
 ###Debug
 ```
-SalesforceBulkDI
+java-sfdc-bulk-api-app
 ├── conf
 │   └── userInfo.properties
 │   └── spec.csv
@@ -27,7 +22,7 @@ SalesforceBulkDI
 
 ###Product
 ```
-ProductFolder
+java-sfdc-bulk-api-app
 ├── SalesforceBulkDI-1.0.0-SNAPSHOT.jar
 ├── conf
 │   └── userInfo.properties
@@ -38,7 +33,6 @@ ProductFolder
 
 ##Run
 ```
-$ cd SalesforceBulkDI
 $ mvn spring-boot:run
 ```
 
